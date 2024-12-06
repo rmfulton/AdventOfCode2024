@@ -1,0 +1,1 @@
+g++ solution2.cpp; ./a.out; rm ./a.out;
