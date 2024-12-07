@@ -2,96 +2,136 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <map>
 
 #include <vector>
 #include <regex>
 
 using namespace std;
 
-vector<vector<char> > parseInput()
+vector<int> parseConstraint(string line)
+{
+    for (int i = 0; i < line.size(); ++i)
+    {
+        if (line[i] == '|')
+        {
+            line[i] = ' ';
+        }
+    }
+    istringstream ss(line);
+    vector<int> constraint;
+    int x;
+    for (int i = 0; i < 2; ++i)
+    {
+        ss >> x;
+        constraint.push_back(x);
+    }
+    return constraint;
+}
+
+vector<int> parsePage(string line)
+{
+    for (int i = 0; i < line.size(); ++i)
+    {
+        if (line[i] == ',')
+        {
+            line[i] = ' ';
+        }
+    }
+    istringstream ss(line);
+    vector<int> page;
+    for (int x; ss >> x;)
+        page.push_back(x);
+    return page;
+}
+
+vector<vector<vector<int> > > parseInput(ifstream *infile)
+{
+    string line = "|";
+    vector<vector<int> > constraints;
+    vector<vector<int> > pages;
+    while (*infile >> line)
+    {
+        if (line.find("|") != string::npos)
+        {
+            vector<int> constraint = parseConstraint(line);
+            constraints.push_back(constraint);
+        }
+        else
+        {
+            vector<int> page = parsePage(line);
+            pages.push_back(page);
+        }
+    }
+    vector<vector<vector<int> > > constraintsAndPages;
+    constraintsAndPages.push_back(constraints);
+    constraintsAndPages.push_back(pages);
+    return constraintsAndPages;
+}
+
+bool isGoodPage(vector<int> candidate, vector<vector<int> > constraints)
+{
+    map<int, int> indexOf;
+    for (int i = 0; i < candidate.size(); ++i)
+    {
+        indexOf[candidate[i]] = i;
+    }
+    for (vector<int> c : constraints)
+    {
+        int left = c[0];
+        int right = c[1];
+        if (indexOf.find(left) != indexOf.end())
+        {
+            if (indexOf.find(right) != indexOf.end())
+            {
+                if (indexOf[left] > indexOf[right])
+                {
+                    cout << "candidate: ";
+                    for (int x : candidate)
+                    {
+                        cout << x << " ";
+                    }
+                    cout << " failed on constraint " << left << " " << right << endl;
+                    return false;
+                }
+            }
+        }
+    }
+    cout << "candidate: ";
+    for (int x : candidate)
+    {
+        cout << x << " ";
+    }
+    cout << "passed" << endl;
+    return true;
+}
+
+vector<vector<int> > getGoodPages()
 {
     string filename = "input.txt";
     ifstream infile(filename);
-
-    string target;
-    vector< vector <char> > result;
-    while (infile >> target)
+    vector<vector<vector<int> > > candP = parseInput(&infile);
+    vector<vector<int> > constraints = candP[0];
+    vector<vector<int> > pages = candP[1];
+    vector<vector<int> > goodPages;
+    for (vector<int> p : pages)
     {
-        vector<char> row;
-        for (char c : target){
-            row.push_back(c);
-        }
-        result.push_back(row);
-    }
-    return result;
-}
-/**
- * A B C
- * D E F
- * G H I
- * ->
- * G D A
- * H E B
- * I F C
- * 
- **/
-vector<vector<char> > rotate90(vector<vector<char> > grid){
-    vector<vector<char> > rot;
-    int rows = grid.size();
-    int cols = grid[0].size();
-    for (int i = 0; i < cols; ++i){
-        vector<char> rot_column;
-        for (int j = rows - 1; j > -1; --j){
-            rot_column.push_back(grid[j][i]);
-        }
-        rot.push_back(rot_column);
-    }
-    return rot;
-}
-
-int countHorizontal(vector<vector<char> > grid){
-    int cols = grid[0].size();
-    int count = 0;
-    for( vector<char> r : grid){
-        for (int i = 0; i +3 < cols; ++i){
-            if (r[i] == 'X' && r[i+1] == 'M' && r[i+2] == 'A' && r[i+3] == 'S'){
-                count += 1;
-            }
+        if (isGoodPage(p, constraints))
+        {
+            goodPages.push_back(p);
         }
     }
-    return count;
+    return goodPages;
 }
-
-int countDiagonal(vector<vector<char> > grid){
-    int cols = grid[0].size();
-    int rows = grid.size();
-    int count = 0;
-    for( int i = 0; i+3 < rows; ++i){
-        for (int j = 0; j +3 < cols; ++j){
-            if (grid[i][j] == 'X' && grid[i+1][j+1] == 'M' && grid[i+2][j+2] == 'A' && grid[i+3][j+3] == 'S'){
-                count += 1;
-            }
-        }
-    }
-    return count;
-}
-
-int howMany(vector<vector<char> > grid){
-    int total = 0;
-    for (int i = 0; i < 4; ++i){
-        total += countHorizontal(grid) + countDiagonal(grid);
-        grid = rotate90(grid);
-    }
-    return total;
-}
-
 
 int main()
 {
-    vector<vector<char> > grid = parseInput();
-    int rows = grid.size();
-    int cols = grid[0].size();
-    int total = howMany(grid);
-    cout << total << endl;
+    vector<vector<int> > goodPages = getGoodPages();
+    int s = 0;
+    for (vector<int> p : goodPages)
+    {
+        s += p[p.size() / 2];
+    }
+    std::cout << s << std::endl;
     return 0;
 }
