@@ -8,145 +8,91 @@
 #include <regex>
 
 using namespace std;
-
-vector<vector<char> > parseInput()
+void prlong(vector<vector<long> > rows){
+    for (vector<long> r : rows){
+        cout << "row: ";
+        for (long v: r){
+            cout << v << " ";
+        }
+        cout << "\n";
+    }
+    cout << "\n";
+}
+vector<vector<long> > parseInput()
 {
     string filename = "input.txt";
     ifstream infile(filename);
 
-    string target;
-    vector<vector<char> > result;
-    while (infile >> target)
+    string line;
+    vector<vector<long> > result;
+    while (infile >> line)
     {
-        vector<char> row;
-        for (char c : target)
-        {
-            row.push_back(c);
+        long value;
+        long colonIndex = line.find(':');
+        istringstream ss(line);
+        ss >> value;
+        if (colonIndex != string::npos){
+            vector<long> newRow;
+            result.push_back(newRow);
         }
-        result.push_back(row);
+        result.back().push_back(value);
     }
     return result;
 }
+void prlongMatchCall(long target, vector<long> sequence){
+    cout << "target " << target << "\n";
+    cout << "sequence: ";
+    for (long e: sequence) { 
+        cout << e << " ";
+    }
+    cout << "\n\n";    
+}
 
-vector<vector<int> > getInitialPositionAndVelocity(vector<vector<char> > grid, int N, int M)
-{
-    vector<int> p;
-    vector<int> v;
-    vector<vector<int> > both;
-    for (int i = 0; i < N; ++i)
+bool matches(long target, vector<long> sequence){
+    // prlongMatchCall(target, sequence);
+    if (sequence.size() == 1){
+        return target == sequence[0];
+    }
+    long last = sequence.back(); sequence.pop_back();
+    long before = sequence.back(); sequence.pop_back();
+    //try addition
+    sequence.push_back(last + before);
+    if ( matches(target, sequence)){
+        return true;
+    }
+    sequence.pop_back();
+
+    // try multiplication
+    sequence.push_back(last * before);
+    if ( matches(target, sequence)){
+        return true;
+    }
+    return false;
+}
+
+long getAnswer(vector<vector<long> > rows){
+    long ans = 0;
+    for (vector<long> v: rows)
     {
-        for (int j = 0; j < M; ++j)
-        {
-            switch (grid[i][j])
-            {
-            case '.':
-                break;
-            case '#':
-                break;
-            case '^':
-                p.push_back(i);
-                p.push_back(j);
-                v.push_back(-1);
-                v.push_back(0);
-                both.push_back(p);
-                both.push_back(v);
-                return both;
-            case '>':
-                p.push_back(i);
-                p.push_back(j);
-                v.push_back(0);
-                v.push_back(1);
-                both.push_back(p);
-                both.push_back(v);
-                return both;
-            case 'v':
-                p.push_back(i);
-                p.push_back(j);
-                v.push_back(1);
-                v.push_back(0);
-                both.push_back(p);
-                both.push_back(v);
-                return both;
-            case '<':
-                p.push_back(i);
-                p.push_back(j);
-                v.push_back(0);
-                v.push_back(-1);
-                both.push_back(p);
-                both.push_back(v);
-                return both;
-            }
+        vector<long> reverse;
+        long size = v.size();
+        for (long i = size - 1; i > -1; --i){
+            reverse.push_back(v[i]);
         }
+        long target = reverse.back(); reverse.pop_back();
+        // prlongMatchCall(target,reverse);
+        ans += matches(target, reverse) ? target : 0;
     }
-    return both;
+    return ans;
 }
 
-bool inBounds(vector<int> pos, int N, int M){
-    return 0 <= pos[0] && pos[0] < N && 0 <= pos[1] && pos[1] < M;
-}
-
-vector<vector<int> > getNewConditions(vector<vector<char> >grid, int N, int M, vector<int> pos,vector<int> vel){
-    vector<vector<int> > pair;
-    vector<int> candidate;
-    candidate.push_back(pos[0] + vel[0]);
-    candidate.push_back(pos[1] + vel[1]);
-    if (!inBounds(candidate, N, M))
-    {
-        pair.push_back(candidate);
-        pair.push_back(vel);
-    } 
-    else if (grid[candidate[0]][candidate[1]] == '#')
-    {
-        vector<int> newVel;
-
-        newVel.push_back(vel[1]);
-        newVel.push_back(-vel[0]);
-        pair.push_back(pos);
-        pair.push_back(newVel);
-    }
-    else
-    {
-        pair.push_back(candidate);
-        pair.push_back(vel);
-    }
-    return pair;
-}
 
 int main()
 {
     time_t t1 = time(NULL);
-    vector<vector<char> > grid = parseInput();
-    const int N = grid.size();
-    const int M = grid[0].size();
-    vector<vector<int> > initialConditions = getInitialPositionAndVelocity(grid, N, M);
-    vector<int> pos = initialConditions[0];
-    vector<int> vel = initialConditions[1];
-
-    bool visited[N][M];
-    for (int i = 0; i < N; ++i)
-    {
-        for (int j = 0; j < M; ++j)
-        {
-            visited[i][j] = false;
-        }
-    }
-    grid[pos[0]][pos[1]] = '.';
-    while (inBounds(pos,N,M)){
-        visited[pos[0]][pos[1]] = true;
-        vector<vector<int> > newConditions = getNewConditions(grid, N, M, pos,vel);
-        pos = newConditions[0];
-        vel = newConditions[1];
-    }
-    
-    int totalVisited = 0;
-    for (int i = 0; i < N; ++i)
-    {
-        for (int j = 0; j < M; ++j)
-        {
-            totalVisited += visited[i][j] ? 1 : 0;
-        }
-    }
-    cout << totalVisited << endl;
-    cout << time(NULL) - t1 << endl;
+    vector<vector< long > > rows = parseInput();
+    long totalSolvable = getAnswer(rows);
+    cout << totalSolvable << endl;
+    cout << "took " << time(NULL) - t1 << " seconds" << endl;
     return 0;
 }
