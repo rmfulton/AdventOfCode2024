@@ -8,81 +8,89 @@
 #include <regex>
 
 using namespace std;
-
-map<char, vector<vector<int> > > parseInput()
+vector<int> parseInput()
 {
     string filename = "input.txt";
     ifstream infile(filename);
 
     string line;
-    map<char, vector< vector<int> > > antennae;
-    int numRows = 0;
-    int numCols = 0;
-    for (; infile >> line; ++numRows)
+    infile >> line;
+    vector<int> fileSystem;
+    bool isFile = false;
+    int id = -1;
+    string digits = "0123456789";
+    for (char c : line)
     {
-        numCols = line.size();
-        for (int i = 0; i < numCols; ++i){
-            if (line[i] != '.'){
-                vector<int> coords{numRows, i};
-                if(antennae.find(line[i]) == antennae.end()){
-                    vector<vector<int> > newVec;
-                    antennae[line[i]] = newVec;
-                }
-                antennae[line[i]].push_back(coords);
-            }
+        isFile = !(isFile);
+
+        int value = digits.find(c);
+        int blankSpace = -1;
+        int toAdd = blankSpace;
+        if (isFile)
+        {
+            ++id;
+            toAdd = id;
+        }
+        for (int i = 0; i < value; ++i)
+        {
+            fileSystem.push_back(toAdd);
         }
     }
-    vector<int>dimensions{numRows, numCols};
-    vector<vector<int> > wrapper;
-    wrapper.push_back(dimensions);
-    antennae['#'] = wrapper;
-
-    return antennae;
-}
-bool inBounds(vector<int> coords, int N, int M){
-    return 0 <= coords[0] && coords[0] < N && 0 <= coords[1] && coords[1] < M;
+    return fileSystem;
 }
 
-int getAnswer(map<char, vector<vector<int> > > antennae, int N, int M){
-    map<vector<int>, bool> antinodes;
-    int ans = 0;
-
-    map<char, vector<vector<int> > >::iterator it;
-
-    for (it = antennae.begin(); it != antennae.end(); it++)
+void rearrangeFileSystemContents(vector<int> *fileSystem)
+{
+    int N = (*fileSystem).size();
+    int i = 0;
+    int j = N - 1;
+    while (i < j)
     {
-        // cout << it->first << ": ";
-        vector<vector<int> > coords = it->second;
-        for(int i = 0; i < coords.size(); ++i){
-            // cout << "(" << coords[i][0] << "," << coords[i][1] << ")";
-            for (int j = 0; j < coords.size(); ++j){
-                if (i == j){
-                    continue;
-                }
-                vector<int> node{coords[j][0], coords[j][1]};
-                while(inBounds(node,N,M))
-                {
-                    antinodes[node] = true;
-                    node[0] += coords[j][0] - coords[i][0];
-                    node[1] += coords[j][1] - coords[i][1];
-                }
-            }
+        if ((*fileSystem)[i] != -1)
+        {
+            ++i;
+            continue;
         }
-        // cout << "\n";
+        if ((*fileSystem)[j] == -1)
+        {
+            --j;
+            continue;
+        }
+        else
+        {
+            (*fileSystem)[i] = (*fileSystem)[j];
+            (*fileSystem)[j] = -1;
+            ++i;
+            --j;
+        }
     }
-
-    return antinodes.size();
 }
 
+long computeCheckSum(vector<int> fileSystem){
+    cout << "computing check sum " << '\n';
+    long long result = 0;
+    int N = fileSystem.size();
+    for (long k = 0; k < N; ++k)
+    {
+        if (fileSystem[k] == -1){
+            continue;
+        }
+        result += k * fileSystem[k];
+
+    }
+    return result;
+}
+long getAnswer(vector<int> fileSystem)
+{
+    rearrangeFileSystemContents(&fileSystem);
+    return computeCheckSum(fileSystem);
+}
 
 int main()
 {
     time_t t1 = time(NULL);
-    map<char, vector<vector< int> > > antennae = parseInput();
-    vector<int> dimensions = antennae['#'][0];
-    int N = dimensions[0];
-    int M = dimensions[1];
-    int answer = getAnswer(antennae, N, M);
+    vector<int> fileSystem = parseInput();
+    long answer = getAnswer(fileSystem);
     cout << answer << endl;
     cout << "took " << time(NULL) - t1 << " seconds" << endl;
     return 0;
