@@ -8,6 +8,25 @@
 #include <regex>
 
 using namespace std;
+
+void printState(vector<int> fileSystem)
+{
+    for (int i = 0; i < fileSystem.size(); ++i)
+    {
+        int k = fileSystem[i];
+        if (k == -1)
+        {
+            cout << '.';
+        }
+        else
+        {
+            cout << k;
+        }
+    }
+    cout << '\n';
+}
+
+
 vector<int> parseInput()
 {
     string filename = "input.txt";
@@ -39,31 +58,40 @@ vector<int> parseInput()
     return fileSystem;
 }
 
-void rearrangeFileSystemContents(vector<int> *fileSystem)
+vector<int> rearrangeFileSystemContents(vector<int> fileSystem)
 {
-    int N = (*fileSystem).size();
-    int i = 0;
+    int N = fileSystem.size();
     int j = N - 1;
-    while (i < j)
-    {
-        if ((*fileSystem)[i] != -1)
-        {
-            ++i;
-            continue;
-        }
-        if ((*fileSystem)[j] == -1)
-        {
+    const int EMPTY = -1;
+
+    while (j > 0){
+        if (fileSystem[j] == EMPTY){
             --j;
             continue;
         }
-        else
-        {
-            (*fileSystem)[i] = (*fileSystem)[j];
-            (*fileSystem)[j] = -1;
-            ++i;
-            --j;
+        int back = j;
+        for (;j > -1 && fileSystem[j] == fileSystem[back];--j){}
+        int fileSize = back - j;
+        int i = 0;
+        while (i < j){
+            if (fileSystem[i] != EMPTY){
+                ++i;
+                continue;
+            }
+            int front = i;
+            for(;fileSystem[i] == fileSystem[front]; ++i){}
+            int gapSize = i - front;
+            if (fileSize > gapSize){
+                continue;
+            }
+            for(int k = 0; k < fileSize; ++k){
+                fileSystem[front + k] = fileSystem[back - k];
+                fileSystem[back - k] = EMPTY;
+            }
+            break;
         }
     }
+    return fileSystem;
 }
 
 long computeCheckSum(vector<int> fileSystem){
@@ -82,14 +110,16 @@ long computeCheckSum(vector<int> fileSystem){
 }
 long getAnswer(vector<int> fileSystem)
 {
-    rearrangeFileSystemContents(&fileSystem);
-    return computeCheckSum(fileSystem);
+    vector<int> permuted = rearrangeFileSystemContents(fileSystem);
+    // printState(permuted);
+    return computeCheckSum(permuted);
 }
 
 int main()
 {
     time_t t1 = time(NULL);
     vector<int> fileSystem = parseInput();
+    // printState(fileSystem);
     long answer = getAnswer(fileSystem);
     cout << answer << endl;
     cout << "took " << time(NULL) - t1 << " seconds" << endl;
