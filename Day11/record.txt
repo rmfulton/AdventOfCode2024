@@ -1,4 +1,4 @@
 setup 9:49 AM
-stream started @ AM
-Part1 complete @ AM
-Part2 complete @ AM
+stream started @9:52  AM
+Part1 complete @10:19 AM
+Part2 complete @11:09 AM

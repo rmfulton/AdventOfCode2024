@@ -3,113 +3,84 @@
 #include <sstream>
 #include <string>
 #include <map>
+#include <cmath>
 
 #include <vector>
 #include <regex>
 
 using namespace std;
-vector< vector<int> > parseInput()
+
+vector<long> parseInput()
 {
-    string filename = "sample.txt";
+    string filename = "input.txt";
     ifstream infile(filename);
-    vector< vector<int> > result;
-    string line;
-    while (infile >> line){
-        vector<int> row;
-        string digits = "0123456789";
-        for (char c: line){
-            int x = digits.find(c);
-            if (x != string::npos){
-                row.push_back(x);
-            }
-        }
-        result.push_back(row);
+    vector<long> result;
+    long x;
+    while (infile >> x){
+        result.push_back(x);
     }
     return result;
 }
 
-vector< vector<int> > getNeighbors(vector<int> source, int N, int M){
-    vector<vector<int> > goodNeighbors;
-    for (int i = 0; i < 4; ++i){
-        int x = source[0] + (i%2)*(i - 2);
-        int y = source[1] + ((i+1)%2)*(i - 1);
-        vector<int> candidate{x, y };
-        if (0 <= candidate[0] && 0 <= candidate[1] && candidate[0] < N && candidate[1] < M ){
-            goodNeighbors.push_back(candidate);
-        }
-    }
-    return goodNeighbors;
+long numDigits(long stone){
+    int k = 0;
+    while (stone > 0){
+        stone = stone/10;
+        ++k;
+    } 
+    return k;
 }
 
-bool doesPathExist(vector<int> origin, vector<int> dest, vector<vector<int> > top){
-    // cout << "trying to find path from (" << origin[0] << ", " << origin[1] << ") to (" << dest[0] << ", " << dest[1] << ")\n";
-    const int N = top.size();
-    const int M = top[0].size();
-    bool visited[N][M];
-    for (int i = 0; i < N; ++i){
-        for (int j = 0; j < M; ++j){
-            visited[i][j] = false;
-        }
-    }
-    vector<vector<int> > stack;
-    stack.push_back(origin);
-    visited[origin[0]][origin[1]] = true;
-    int count = 0;
-    while (stack.size()){
-        vector<vector<int> > newStack;
-        for (vector<int> source: stack){
-            vector<vector<int> > neighbors = getNeighbors(source, N, M);
-            for (vector<int> neighbor: neighbors){
-                if (visited[neighbor[0]][neighbor[1]] == true){
-                    continue;
-                }
-                if ( top[neighbor[0]][neighbor[1]] == 1 + top[source[0]][source[1]]){
-                    newStack.push_back(neighbor);
-                    visited[neighbor[0]][neighbor[1]] = true;
-                }
-            }
-        }
-        ++count;
-        stack = newStack;
-    }
-    bool pathExists = visited[dest[0]][dest[1]];
-    // cout << (pathExists ? "SUCCESS" : "FAILURE") << '\n';
-    return visited[dest[0]][dest[1]];
-    
-
+vector<long> splitStone(long stone){
+    int d = numDigits(stone);
+    long divisor = pow(10,d/2);
+    long back = stone % divisor;
+    long front = stone / divisor;
+    vector<long> v{front,back};
+    return v;
 }
-long getScoreSum(vector<vector<int>  >top)
-{
-    const int N = top.size();
-    const int M = top[0].size();
-    int total = 0;
-    vector<vector<int> > origins;
-    vector<vector<int> > dests;
-    for(int i = 0; i< N; ++i){
-        for (int j = 0; j < M; ++j){
-            vector<int> newVec{i,j};
-            if (top[i][j] == 0){
-                origins.push_back(newVec);
-            }
-            if (top[i][j] == 9){
-                dests.push_back(newVec);
-            }
+
+vector<long> blink(vector<long> stones){
+    vector<long> newStones;
+    for(long stone: stones){
+        // cout << "stone: " << stone << " ";
+        if (stone == 0){
+            // cout << "newStone: " << 1 << '\n';
+            newStones.push_back(1);
+        }
+        else if (numDigits(stone) % 2 == 0){
+            vector<long> split = splitStone(stone);
+            // cout << "newStone: " << split[0] << ' ' << split[1] << '\n';
+            newStones.push_back(split[0]);
+            newStones.push_back(split[1]);
+        }
+        else {
+            // cout << "newStone: " << stone*2024 << '\n';
+            newStones.push_back(stone*2024);
         }
     }
-    for (vector<int> origin: origins){
-        for(vector<int> dest : dests){
-            total += doesPathExist(origin, dest, top) ? 1 : 0;
-        }
+    return newStones;
+}
+
+long numStonesAfterNBlinks(vector<long> stones, int blinks){
+    vector<long> newStones = stones;
+    for(int k = 0; k < blinks; ++k){
+        // cout << "iter " << k << '\n';
+        newStones = blink(newStones);
     }
-    return total;
+    // for (int stone: newStones){
+    //     cout << stone << " ";
+    // }
+    // cout << '\n';
+    return newStones.size();
 }
 
 int main()
 {
     time_t t1 = time(NULL);
-    vector<vector<int> > topography = parseInput();
-    cout << "\ndimensions " << topography.size() << " " << topography[0].size() << '\n';
-    long answer = getScoreSum(topography);
+    vector<long> stones = parseInput();
+    int numBlinks = 25;
+    long answer = numStonesAfterNBlinks(stones, numBlinks);
     cout << answer << endl;
     cout << "took " << time(NULL) - t1 << " seconds" << endl;
     return 0;

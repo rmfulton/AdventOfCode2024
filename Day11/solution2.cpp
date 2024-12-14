@@ -3,161 +3,95 @@
 #include <sstream>
 #include <string>
 #include <map>
+#include <cmath>
 
 #include <vector>
 #include <regex>
 
 using namespace std;
-vector<vector<int> > parseInput()
+
+vector<long> parseInput()
 {
     string filename = "input.txt";
     ifstream infile(filename);
-    vector<vector<int> > result;
-    string line;
-    while (infile >> line)
-    {
-        vector<int> row;
-        string digits = "0123456789";
-        for (char c : line)
-        {
-            int x = digits.find(c);
-            if (x != string::npos)
-            {
-                row.push_back(x);
-            }
-        }
-        result.push_back(row);
+    vector<long> result;
+    long x;
+    while (infile >> x){
+        result.push_back(x);
     }
     return result;
 }
 
-void printPaths(vector<vector<int> > paths, int N, int M){
-    for (int i = 0; i < N; ++i){
-        for (int j = 0; j < M; ++j){
-            cout << paths[i][j];
-        }
-        cout << '\n';
-    }
-    cout << '\n';
+long numDigits(long stone){
+    int k = 0;
+    while (stone > 0){
+        stone = stone/10;
+        ++k;
+    } 
+    return k;
 }
 
-void rearrangeFileSystemContents(vector<int> *fileSystem)
-{
-    int N = (*fileSystem).size();
-    int i = 0;
-    int j = N - 1;
-    while (i < j)
-    {
-        if ((*fileSystem)[i] != -1)
-        {
-            ++i;
-            continue;
-        }
-        if ((*fileSystem)[j] == -1)
-        {
-            --j;
-            continue;
-        }
-        else
-        {
-            (*fileSystem)[i] = (*fileSystem)[j];
-            (*fileSystem)[j] = -1;
-            ++i;
-            --j;
-        }
-    }
+vector<long> splitStone(long stone){
+    int d = numDigits(stone);
+    long divisor = pow(10,d/2);
+    long back = stone % divisor;
+    long front = stone / divisor;
+    vector<long> v{front,back};
+    return v;
 }
 
-vector<vector<int> > getNeighbors(vector<int> source, int N, int M)
-{
-    vector<vector<int> > goodNeighbors;
-    for (int i = 0; i < 4; ++i)
-    {
-        int x = source[0] + (i % 2) * (i - 2);
-        int y = source[1] + ((i + 1) % 2) * (i - 1);
-        vector<int> candidate{x, y};
-        if (0 <= candidate[0] && 0 <= candidate[1] && candidate[0] < N && candidate[1] < M)
-        {
-
-            goodNeighbors.push_back(candidate);
+vector<long> blink(vector<long> stones){
+    vector<long> newStones;
+    for(long stone: stones){
+        // cout << "stone: " << stone << " ";
+        if (stone == 0){
+            // cout << "newStone: " << 1 << '\n';
+            newStones.push_back(1);
+        }
+        else if (numDigits(stone) % 2 == 0){
+            vector<long> split = splitStone(stone);
+            // cout << "newStone: " << split[0] << ' ' << split[1] << '\n';
+            newStones.push_back(split[0]);
+            newStones.push_back(split[1]);
+        }
+        else {
+            // cout << "newStone: " << stone*2024 << '\n';
+            newStones.push_back(stone*2024);
         }
     }
-    return goodNeighbors;
+    return newStones;
 }
 
-int howManyPaths(vector<vector<int> > origins, vector<vector<int> > dests, vector<vector<int> > top)
-{
-    int N = top.size();
-    int M = top[0].size();
-    vector<vector<int> > numPathsTo;
-    for (int i = 0; i < N;++i){
-        vector<int> row;
-        for (int j = 0; j < M; ++j){
-            row.push_back( 0);
-        }
-        numPathsTo.push_back(row);
+long numStonesAfterNBlinks(long stone, int blinks, map< pair<long,int>,long > *memo){
+    if (blinks == 0){
+        return 1;
     }
-    for (vector<int> start: origins){
-        numPathsTo[start[0]][start[1]] = 1;
+    pair<long,int> p{stone,blinks};
+    map<pair<long,int>, long>::iterator it = memo->find(p);
+    if (it != memo->end()){
+        return it->second;
     }
-    vector<vector<int> > stack = origins;
-    for (int i = 0; i < 9; ++i){
-        vector<vector<int> > newStack;
-        // cout << "STACK\n";
-        for (vector<int> source: stack){
-            // cout << source[0] << " " << source[1] << '\n';
-            for (vector<int> adj: getNeighbors(source, N, M)){
-                if (top[adj[0]][adj[1]] == i+1){
-                    if (numPathsTo[adj[0]][adj[1]] == 0){
-                        newStack.push_back(adj);
-                    }
-                    numPathsTo[adj[0]][adj[1]] += numPathsTo[source[0]][source[1]];
-                }
-            }
-        }
-        // cout << "Step " << i << "\n\n";
-        stack = newStack;
+    vector<long>oldStones;
+    oldStones.push_back(stone);
+    vector<long> newStones = blink(oldStones);
+    long answer = 0;
+    for (long stone: newStones){
+        answer += numStonesAfterNBlinks(stone, blinks - 1,memo);
     }
-
-    int sumPaths = 0;
-    for (vector<int> end: dests){
-        sumPaths += numPathsTo[end[0]][end[1]];
-    }
-    return sumPaths;  
-}
-
-long getScoreSum(vector<vector<int> > top)
-{
-    const int N = top.size();
-    const int M = top[0].size();
-    int total = 0;
-    vector<vector<int> > origins;
-    vector<vector<int> > dests;
-    for (int i = 0; i < N; ++i)
-    {
-        for (int j = 0; j < M; ++j)
-        {
-            vector<int> newVec{i, j};
-            if (top[i][j] == 0)
-            {
-                origins.push_back(newVec);
-            }
-            if (top[i][j] == 9)
-            {
-                dests.push_back(newVec);
-            }
-        }
-    }
-    return howManyPaths(origins, dests, top);
+    (*memo)[p] = answer;
+    return answer;
 }
 
 int main()
 {
     time_t t1 = time(NULL);
-    vector<vector<int> > topography = parseInput();
-    printPaths(topography, topography.size(), topography[0].size());
-    cout << "\ndimensions " << topography.size() << " " << topography[0].size() << '\n';
-    long answer = getScoreSum(topography);
+    vector<long> stones = parseInput();
+    int numBlinks = 75;
+    map< pair<long, int>, long> memo;
+    long answer = 0;
+    for (long stone: stones){
+        answer += numStonesAfterNBlinks(stone, numBlinks, &memo);
+    }
     cout << answer << endl;
     cout << "took " << time(NULL) - t1 << " seconds" << endl;
     return 0;
