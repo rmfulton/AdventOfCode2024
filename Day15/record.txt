@@ -1,0 +1,5 @@
+setup 7:30 PM
+stream started @7:30  PM
+stream interrupted @7:39 PM
+Part1 complete @10:19 AM
+Part2 complete @11:09 AM
