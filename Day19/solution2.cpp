@@ -5,110 +5,71 @@
 
 using namespace std;
 
-/*
-Parses a sequence of coordinates
-*/
-vector<vector<int>> getFallingCoords(string filename){
-    ifstream infile(filename);
-    vector<vector<int>> badBytes;
-    string coords;
-    while (infile >> coords){
-        int commaIndex = coords.find(",");
-        int i1 = stoi(coords.substr(0,commaIndex));
-        int i2 = stoi(coords.substr(commaIndex+1, coords.size() - commaIndex - 1));
-        badBytes.push_back({i1, i2});
+pair<vector<string>, vector<string>> parseInput(string filename)
+{
+    ifstream f(filename);
+    vector<string> patterns;
+    vector<string> designs;
+    string instring;
+    int numLackingCommas = 0;
+    while (f >> instring)
+    {
+        if (instring[instring.size() - 1] == ','){
+            patterns.push_back(instring.substr(0, instring.size() - 1));
+        } else if (numLackingCommas < 1){
+            patterns.push_back(instring);
+            numLackingCommas += 1;
+        } else {
+            designs.push_back(instring);
+        }
     }
-    return badBytes;
+    return make_pair(patterns, designs);
 }
 
-vector<vector<int>> getNeighbors(vector<int> current, const int WIDTH, const int HEIGHT, map<vector<int>, bool> illegalBytes){
-    vector<int> up{current[0] - 1, current[1]};
-    vector<int> down{current[0] + 1, current[1]};
-    vector<int> left{current[0], current[1] - 1};
-    vector<int> right{current[0], current[1] + 1};
-    vector<vector<int>> candidates{up,down,left,right};
-    vector<vector<int>> ret;
-    for (vector<int> c : candidates){
-        if (illegalBytes.find(c) != illegalBytes.end()){
+long canBeMade(vector<string> patterns, string design)
+{
+    vector<string> newPatterns;
+    for (string p : patterns){
+        if (design.find(p) == design.npos){
             continue;
         }
-        if (0 <= c[0] && c[0] < WIDTH && 0 <= c[1] && c[1] < HEIGHT){
-            ret.push_back(c);
-        }
+        newPatterns.push_back(p);
     }
-    return ret;
-}
-/*
-We will create a CONSTANT three dimensional array. Zero denotes an empty space.
-One denotes a blocked space. 
-The time and space here is 4900 * N
 
-Then it's just a graph traversal / dynamic programming problem
-    - Create a map of visited coordinates -> graph distance from (0,0)
-    - yeah, this will work.
-*/
-int getShortestPathLength(vector<int> startCoords, vector<int> endCoords, vector<vector<int>> fallingBytes, int numThatFell){
-    map<vector<int>, bool> illegalBytes;
-    for (int i = 0; i < numThatFell; ++i){
-        illegalBytes[fallingBytes[i]] = true;
+    const int NumSubStrings = design.size() + 1;
+    // numWaysToMake[i] denotes the number of ways to make the substring design.substr(0, i) from patterns
+    long numWaysToMake[NumSubStrings];
+    for (int i = 0; i < NumSubStrings; ++i){
+        numWaysToMake[i] = 0;
     }
-    const int WIDTH = endCoords[0] + 1;
-    const int HEIGHT = endCoords[1] + 1;
-    int shortestDistance[WIDTH][HEIGHT];
-    for (int i = 0; i < WIDTH; ++i){
-        for (int j = 0; j < HEIGHT; ++j){
-            shortestDistance[i][j] = WIDTH*HEIGHT;
-        }
-    }
-    shortestDistance[startCoords[0]][startCoords[1]] = 0;
-    vector<vector<int>> toVisit{startCoords};
-    for (int i = 0; i < toVisit.size(); ++i){
-        vector<int> top = toVisit[i];
-        int distance = shortestDistance[top[0]][top[1]];
-        vector<vector<int>> neighbors = getNeighbors(top, WIDTH, HEIGHT, illegalBytes);
-        // cout << neighbors.size() << endl;
-        for (vector<int> coord: neighbors){
-
-            if (shortestDistance[coord[0]][coord[1]] > distance + 1){
-                shortestDistance[coord[0]][coord[1]] = distance + 1;
-                toVisit.push_back(coord);
+    numWaysToMake[0] = 1;
+    for (int i = 1; i < NumSubStrings; ++i){
+        long totalWays = 0;
+        for (string component : patterns){
+            int L = component.size();
+            if (L <= i && design.substr(i-L, L) == component){
+                totalWays += numWaysToMake[i - L];
             }
         }
+        numWaysToMake[i] = totalWays;
     }
-    // for (int i = 0; i < WIDTH; ++i){
-    //     for (int j = 0; j < HEIGHT; ++j){
-    //         cout << shortestDistance[j][i] << "   ";
-    //     }
-    //     cout << '\n';
-    // }
-    return shortestDistance[endCoords[0]][endCoords[1]];
+    return numWaysToMake[NumSubStrings - 1];
 }
 
-int getFinalTime(vector<int> startCoords, vector<int> endCoords, vector<vector<int>> fallingBytes){
-    int L = fallingBytes.size();
-    int i = 0;
-    int j = L - 1;
-    int mid;
-    int MAX = (endCoords[0] + 1)*(endCoords[1] + 1);
-    while(j - i > 1){
-        mid = (i + j)/2;
-        if (getShortestPathLength(startCoords, endCoords, fallingBytes, mid) < MAX){
-            i = mid;
-        } else {
-            j = mid;
-        }
-    }
-    return i;
-}
+int main()
+{
 
-int main(){
-    vector<int> startCoords{0,0};
-    vector<int> endCoords{70,70};
     string filename = "input.txt";
-    // endCoords = {6,6};
     // filename = "sample.txt";
-    vector<vector<int>> fallingBytes = getFallingCoords(filename);
-    int time = getFinalTime(startCoords, endCoords, fallingBytes);
-    cout << fallingBytes[time][0] <<","<< fallingBytes[time][1]  << endl;
+    pair<vector<string>, vector<string>> patternsAndDesigns = parseInput(filename);
+    vector<string> patterns = patternsAndDesigns.first;
+    vector<string> designs = patternsAndDesigns.second;
+    long count = 0;
+    for (string d : designs)
+    {
+        cout << "Design " << d << endl;
+        count += canBeMade(patterns, d);
+    }
+    cout << count << endl;
     return 0;
 }
