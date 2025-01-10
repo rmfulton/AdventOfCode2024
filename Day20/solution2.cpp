@@ -51,51 +51,83 @@ vector<vector<int>> getNeighbors(vector<int> coord, const vector<string> &grid)
     return ret;
 }
 
-int distanceFromSToEWithCheats(vector<string> grid, int num_cheats_allowed)
+int numCheatsSavingAtLeastThreshold(const vector<string> &grid, int threshold, int max_cheat)
 {
     const int NUM_ROWS = grid.size();
     const int NUM_COLS = grid[0].size();
-    const int NUM_CHEAT_STATES = num_cheats_allowed + 1;
-    int states[NUM_ROWS][NUM_COLS][NUM_CHEAT_STATES];
-    throw;
-}
 
-int distanceFromSToE(const vector<string> &grid)
-{
-    const int NUM_ROWS = grid.size();
-    const int NUM_COLS = grid[0].size();
-    int distance[NUM_ROWS][NUM_COLS];
+    int d2s[NUM_ROWS][NUM_COLS];
+    int d2e[NUM_ROWS][NUM_COLS];
+
     for (int i = 0; i < NUM_ROWS; ++i)
     {
         for (int j = 0; j < NUM_COLS; ++j)
         {
-            distance[i][j] = NUM_ROWS * NUM_COLS;
+            d2s[i][j] = NUM_ROWS * NUM_COLS;
+            d2e[i][j] = NUM_ROWS * NUM_COLS;
         }
     }
     vector<int> s_coords = getCoords(grid, 'S');
-    distance[s_coords[0]][s_coords[1]] = 0;
+    vector<int> e_coords = getCoords(grid, 'E');
+    d2s[s_coords[0]][s_coords[1]] = 0;
+    d2e[e_coords[0]][e_coords[1]] = 0;
 
-    vector<vector<int>> coordQ{s_coords};
-    for (int i = 0; i < coordQ.size(); ++i)
+    vector<vector<int>> coordQs{s_coords};
+    vector<vector<int>> coordQe{e_coords};
+    for (int i = 0; i < coordQs.size(); ++i)
     {
-        vector<int> coords = coordQ[i];
-        int d = distance[coords[0]][coords[1]];
+        vector<int> coords = coordQs[i];
+        int d = d2s[coords[0]][coords[1]];
         for (vector<int> x : getNeighbors(coords, grid))
         {
-            if (distance[x[0]][x[1]] > d + 1)
+            if (d2s[x[0]][x[1]] > d + 1)
             {
-                coordQ.push_back(x);
-                distance[x[0]][x[1]] = d + 1;
+                coordQs.push_back(x);
+                d2s[x[0]][x[1]] = d + 1;
             }
         }
     }
-    vector<int> e_coords = getCoords(grid, 'E');
-    return distance[e_coords[0]][e_coords[1]];
-}
+    for (int i = 0; i < coordQe.size(); ++i)
+    {
+        vector<int> coords = coordQe[i];
+        int d = d2e[coords[0]][coords[1]];
+        for (vector<int> x : getNeighbors(coords, grid))
+        {
+            if (d2e[x[0]][x[1]] > d + 1)
+            {
+                coordQe.push_back(x);
+                d2e[x[0]][x[1]] = d + 1;
+            }
+        }
+    }
+    cout << "computed distances to both places" << endl;
+    int count = 0;
+    int standard_cost = d2e[s_coords[0]][s_coords[1]];
+    cout << "standard_cost: " << standard_cost << endl;;
+    for (int i = 0; i < NUM_ROWS; ++i){
+        for (int j = 0; j < NUM_COLS; ++j){
+            // for each cheat start
+            if (grid[i][j] == '#') continue;
+            for (int i2 = i - max_cheat; i2 <= i + max_cheat; ++i2){
+                if (i2 < 0 || i2 >= NUM_ROWS) continue;
+                int excess = max_cheat - abs(i - i2);
+                for (int j2 = j - excess; j2 <= j + excess; ++j2){
+                    // and each cheat end
+                    if (j2 < 0 || j2 >= NUM_COLS ) continue;
+                    if (grid[i2][j2] == '#') continue;
+                    int cheat_cost = abs(i - i2) + abs(j - j2) + d2s[i][j] + d2e[i2][j2];
+                    // if (cheat_cost <= standard_cost){
+                    //     cout << i << " " << j << " " << i2 << " " << j2 << " " << "cheat_cost: " << cheat_cost << endl;
+                    // }
+                    if (standard_cost - cheat_cost >= threshold){
+                        ++count;
+                    }
+                }
+            }
 
-bool hasTwoEmptyNeighbors(int i, int j, const vector<string> &grid){
-    vector<vector<int>> neighbors = getNeighbors({i,j}, grid);
-    return neighbors.size() >= 2;
+        }
+    }
+    return count;
 }
 
 int main()
@@ -104,29 +136,10 @@ int main()
     string filename = "input.txt";
     // filename = "sample.txt";
     int reductionThreshold = 100;
+    int max_cheat = 20;
     vector<string> grid = parseInput(filename);
-    int D = distanceFromSToE(grid);
-    cout << "vanilla distance is " << D << endl;
-    int count = 0;
-    for (int i = 0; i < grid.size(); ++i)
-    {
-        cout << i << " of " << grid.size() << endl;
-        for (int j = 0; j < grid.size(); ++j)
-        {
-            char tmp = grid[i][j];
-            if (tmp == '#' && hasTwoEmptyNeighbors(i,j,grid))
-            {
-                grid[i][j] = '.';
-                int x = distanceFromSToE(grid);
-                if (x + reductionThreshold <= D)
-                {
-                    ++count;
-                }
-                grid[i][j] = tmp;
-            }
-        }
-    }
-    cout << "count that reduce by at least" << reductionThreshold << ": " << count << endl;
+    int count = numCheatsSavingAtLeastThreshold(grid, reductionThreshold, max_cheat);
+    cout << "count that reduce by at least " << reductionThreshold << ": " << count << endl;
 
     return 0;
 }
