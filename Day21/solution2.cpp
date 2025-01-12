@@ -1,4 +1,5 @@
 #include <iostream>
+#include <string>
 #include <vector>
 #include <fstream>
 #include <map>
@@ -17,129 +18,288 @@ vector<string> parseInput(string filename)
     return grid;
 }
 
-vector<int> getCoords(const vector<string> &grid, char c)
+map<char, vector<int>> getNumericPadCoords()
 {
-    for (int i = 0; i < grid.size(); ++i)
-    {
-        for (int j = 0; j < grid[0].size(); ++j)
-        {
-            if (grid[i][j] == c)
-            {
-                return {i, j};
-            }
-        }
-    }
-    return {-1, -1};
+    map<char, vector<int>> numericPad;
+    numericPad['7'] = {0, 0};
+    numericPad['8'] = {0, 1};
+    numericPad['9'] = {0, 2};
+    numericPad['4'] = {1, 0};
+    numericPad['5'] = {1, 1};
+    numericPad['6'] = {1, 2};
+    numericPad['1'] = {2, 0};
+    numericPad['2'] = {2, 1};
+    numericPad['3'] = {2, 2};
+    numericPad['X'] = {3, 0};
+    numericPad['0'] = {3, 1};
+    numericPad['A'] = {3, 2};
+    return numericPad;
 }
 
-vector<vector<int>> getNeighbors(vector<int> coord, const vector<string> &grid)
+map<char, vector<int>> getDirectionPadCoords()
 {
-    const int WIDTH = grid.size();
-    const int HEIGHT = grid[0].size();
-    vector<vector<int>> candidates{{coord[0], coord[1] - 1}, {coord[0], coord[1] + 1}, {coord[0] + 1, coord[1]}, {coord[0] - 1, coord[1]}};
-    vector<vector<int>> ret;
-    for (vector<int> k : candidates)
-    {
-        if (0 <= k[0] && k[0] < WIDTH && 0 <= k[1] && k[1] < HEIGHT)
-        {
-            if (grid[k[0]][k[1]] != '#')
-            {
-                ret.push_back(k);
-            }
-        }
-    }
-    return ret;
+    map<char, vector<int>> directionPad;
+    directionPad['X'] = {0, 0};
+    directionPad['^'] = {0, 1};
+    directionPad['A'] = {0, 2};
+    directionPad['<'] = {1, 0};
+    directionPad['v'] = {1, 1};
+    directionPad['>'] = {1, 2};
+    return directionPad;
 }
 
-int numCheatsSavingAtLeastThreshold(const vector<string> &grid, int threshold, int max_cheat)
+string getArrowInstructions(string s);
+
+int numOnesIn(int x)
 {
-    const int NUM_ROWS = grid.size();
-    const int NUM_COLS = grid[0].size();
-
-    int d2s[NUM_ROWS][NUM_COLS];
-    int d2e[NUM_ROWS][NUM_COLS];
-
-    for (int i = 0; i < NUM_ROWS; ++i)
-    {
-        for (int j = 0; j < NUM_COLS; ++j)
-        {
-            d2s[i][j] = NUM_ROWS * NUM_COLS;
-            d2e[i][j] = NUM_ROWS * NUM_COLS;
-        }
-    }
-    vector<int> s_coords = getCoords(grid, 'S');
-    vector<int> e_coords = getCoords(grid, 'E');
-    d2s[s_coords[0]][s_coords[1]] = 0;
-    d2e[e_coords[0]][e_coords[1]] = 0;
-
-    vector<vector<int>> coordQs{s_coords};
-    vector<vector<int>> coordQe{e_coords};
-    for (int i = 0; i < coordQs.size(); ++i)
-    {
-        vector<int> coords = coordQs[i];
-        int d = d2s[coords[0]][coords[1]];
-        for (vector<int> x : getNeighbors(coords, grid))
-        {
-            if (d2s[x[0]][x[1]] > d + 1)
-            {
-                coordQs.push_back(x);
-                d2s[x[0]][x[1]] = d + 1;
-            }
-        }
-    }
-    for (int i = 0; i < coordQe.size(); ++i)
-    {
-        vector<int> coords = coordQe[i];
-        int d = d2e[coords[0]][coords[1]];
-        for (vector<int> x : getNeighbors(coords, grid))
-        {
-            if (d2e[x[0]][x[1]] > d + 1)
-            {
-                coordQe.push_back(x);
-                d2e[x[0]][x[1]] = d + 1;
-            }
-        }
-    }
-    cout << "computed distances to both places" << endl;
     int count = 0;
-    int standard_cost = d2e[s_coords[0]][s_coords[1]];
-    cout << "standard_cost: " << standard_cost << endl;;
-    for (int i = 0; i < NUM_ROWS; ++i){
-        for (int j = 0; j < NUM_COLS; ++j){
-            // for each cheat start
-            if (grid[i][j] == '#') continue;
-            for (int i2 = i - max_cheat; i2 <= i + max_cheat; ++i2){
-                if (i2 < 0 || i2 >= NUM_ROWS) continue;
-                int excess = max_cheat - abs(i - i2);
-                for (int j2 = j - excess; j2 <= j + excess; ++j2){
-                    // and each cheat end
-                    if (j2 < 0 || j2 >= NUM_COLS ) continue;
-                    if (grid[i2][j2] == '#') continue;
-                    int cheat_cost = abs(i - i2) + abs(j - j2) + d2s[i][j] + d2e[i2][j2];
-                    // if (cheat_cost <= standard_cost){
-                    //     cout << i << " " << j << " " << i2 << " " << j2 << " " << "cheat_cost: " << cheat_cost << endl;
-                    // }
-                    if (standard_cost - cheat_cost >= threshold){
-                        ++count;
-                    }
-                }
-            }
+    for (int y = x; y > 0; y >>= 1)
+        if (y % 2 == 1)
+            ++count;
+    return count;
+}
 
+/*
+Input: start and end, where each char corresponds to one of 
++---+---+---+
+| 7 | 8 | 9 |
++---+---+---+
+| 4 | 5 | 6 |
++---+---+---+
+| 1 | 2 | 3 |
++---+---+---+
+  X | 0 | A |
+    +---+---+
+and X is an illegal square
+
+Output: a set of sequences drawn from '><v^' encoding the shortest paths from start to end
+
+Algorithm: 
+    option 1: 
+        create a 'DistanceFromEnd' map and a pathStack. 
+        Move to neighbors which decrease the distanceFromEnd until you reach end,
+        then translate the path to a sequence of instructions and save the instructions.
+
+        complexity: 
+            O(paths ~ N^2, where N is the dimension of a square board)
+
+    option 2: 
+        compute the taxicab distance D
+        map to each binary number 0 <= i < 2^D
+            a walk of length D in the same quadrant as end
+            if the walk terminates at end,
+                and the walk doesn't pass through any illegal zones,
+                    save the instructions for the walk
+        complexity:
+            O(N*2^N)
+    
+    I prefer option 2. Conceptually elegant > computationally efficient
+*/
+vector<string> GetAllPathsFromTo(char start, char end, map<char, vector<int>> mapCharToCoords)
+{
+    vector<int> startCoord = mapCharToCoords[start];
+    vector<int> endCoord = mapCharToCoords[end];
+    vector<int> illegalCoord = mapCharToCoords['X'];
+    const int deltaX = endCoord[0] - startCoord[0];
+    const int deltaY = endCoord[1] - startCoord[1];
+    const int taxicab = abs(deltaX) + abs(deltaY);
+    const int dx = deltaX == 0 ? 0 : deltaX / abs(deltaX);
+    const int dy = deltaY == 0 ? 0 : deltaY / abs(deltaY);
+    const char dxChar = (vector<char>){'^', 'v'}[(dx + 1) / 2];
+    const char dyChar = (vector<char>){'<', '>'}[(dy + 1) / 2];
+    vector<int> instructionSet{dxChar, dyChar};
+    vector<vector<int>> deltaPos{{dx, 0}, {0, dy}};
+    vector<string> allInstructions;
+    for (int i = 0; i < (1 << taxicab); ++i)
+    {
+        if (numOnesIn(i) != abs(deltaY))
+            continue;
+        bool isIllegalPath = false;
+        vector<int> pathTip = startCoord;
+        string instructions = "";
+        for (int j = 0; j < taxicab; ++j)
+        {
+            int dir = (i >> j) % 2;
+            instructions += instructionSet[dir];
+            pathTip[0] += deltaPos[dir][0];
+            pathTip[1] += deltaPos[dir][1];
+            if (pathTip == illegalCoord)
+            {
+                isIllegalPath = true;
+                break;
+            }
+        }
+        if (isIllegalPath)
+            continue;
+        allInstructions.push_back(instructions);
+    }
+    return allInstructions;
+}
+
+map<pair<char, char>, vector<vector<pair<char, char>>>> getAllPaths()
+{
+    vector<char> legalCharacters{'A', '<', 'v', '^', '>'};
+    map<char, vector<int>> charToCoords = getDirectionPadCoords();
+    map<pair<char, char>, vector<vector<pair<char, char>>>> transformation;
+    int N = legalCharacters.size();
+    for (int i = 0; i < N; ++i)
+        for (int j = 0; j < N; ++j)
+        {
+            char a = legalCharacters[i];
+            char b = legalCharacters[j];
+            pair<char, char> inputs = make_pair(a, b);
+            vector<string> fromTo = GetAllPathsFromTo(a, b, charToCoords);
+            vector<vector<pair<char, char>>> outputs;
+            // cout << a << ", " << b << " yields ";
+            for (string result : fromTo)
+            {
+                result = result + 'A';
+                // cout << result << " ";
+                char current = 'A';
+                vector<pair<char, char>> sequence;
+                for (char after : result)
+                {
+                    sequence.push_back(make_pair(current, after));
+                    current = after;
+                }
+                outputs.push_back(sequence);
+            }
+            // cout << endl;
+            transformation[inputs] = outputs;
+        }
+    return transformation;
+}
+
+/*
+Input: string s,
+Output: all minimum length instructions that output s
+Algorithm: 
+    Feed k to a kind of reduce function, where the initial value is 'A',
+    and the reduce operation *(c1, c2) produces all VALID minimum-length paths from c1 to c2.
+    for each prefix in the set of prefix instructions,
+        for each element in the result of *(c1, c2),
+            you create a new set of instructions prefix + element + 'A'
+    then return this final set of instructions. 
+*/
+vector<string> getAllValidMinimumLengthInstructionsFor(string s, map<char, vector<int>> mapCharToCoords)
+{
+    vector<string> prefixes = {""};
+    char start = 'A';
+    for (char end : s)
+    {
+        vector<string> suffixes = GetAllPathsFromTo(start, end, mapCharToCoords);
+        vector<string> instructions;
+        for (string prefix : prefixes)
+        {
+            for (string suffix : suffixes)
+            {
+                instructions.push_back(prefix + suffix + 'A');
+            }
+        }
+
+        prefixes = instructions;
+        start = end;
+    }
+    return prefixes;
+}
+
+/*
+Input: A set of strings s,
+Output: The union over elements k of s of (all minimum length instructions that output k)
+*/
+vector<string> getInstructions(vector<string> strings, map<char, vector<int>> mapCharToCoords)
+{
+    vector<string> instructionsForAny;
+    for (string s : strings)
+    {
+        for (string instruction : getAllValidMinimumLengthInstructionsFor(s, mapCharToCoords))
+        {
+            instructionsForAny.push_back(instruction);
         }
     }
-    return count;
+    return instructionsForAny;
+}
+vector<string> getNumericInstructions(vector<string> strings)
+{
+    return getInstructions(strings, getNumericPadCoords());
+}
+/*
+MinimumLengthFromToWith denotes the minimum length of an instruction which outputs legalCharacters[To] given that
+the preceding character was legalCharacters[From] and the instructions are passed to a chain of WithK robots
+*/
+long getMinInstructionLengthAfterIters(string output, const int iters)
+{
+    map<pair<char, char>, vector<vector<pair<char, char>>>> transform = getAllPaths();
+    vector<char> legalCharacters{'A', '<', 'v', '^', '>'};
+    const int N = legalCharacters.size();
+
+    map<char, int> lookup;
+    for (int i = 0; i < N; ++i)
+        lookup[legalCharacters[i]] = i;
+
+    long MinimumLengthFromToWith[N][N][iters + 1];
+    // It takes 1 character to represent any given character with a 0 robot chain
+    for (int i = 0; i < N; ++i)
+        for (int j = 0; j < N; ++j)
+            MinimumLengthFromToWith[i][j][0] = 1;
+
+    for (int k = 1; k < iters + 1; ++k)
+        for (int i = 0; i < N; ++i)
+            for (int j = 0; j < N; ++j)
+            {
+                pair<char, char> p = make_pair(legalCharacters[i], legalCharacters[j]);
+                long smallestResult = -1;
+                for (vector<pair<char, char>> sequence : transform[p])
+                {
+                    long candidate = 0;
+                    for (pair<char,char> x : sequence){
+                        candidate += MinimumLengthFromToWith[lookup[x.first]][lookup[x.second]][k-1];
+                    }
+                    if (smallestResult == -1 || candidate < smallestResult)
+                        smallestResult = candidate;
+                }
+                MinimumLengthFromToWith[i][j][k] = smallestResult;
+            }
+    char start = 'A';
+    long smallestInstructionLength = 0;
+    for (char c : output){
+        smallestInstructionLength += MinimumLengthFromToWith[lookup[start]][lookup[c]][iters];
+        start = c;
+    }
+    return smallestInstructionLength;
+}
+
+long getComplexity(string my_string, int iters)
+{
+    int numeric = stoi(my_string.substr(0, 3));
+    vector<string> instructions = getNumericInstructions({my_string});
+    long smallestLength = -1;
+    for (string x : instructions)
+    {
+        long minInstructionLength = getMinInstructionLengthAfterIters(x, iters);
+        if (smallestLength == -1)
+            smallestLength = minInstructionLength;
+        if (smallestLength > minInstructionLength)
+            smallestLength = minInstructionLength;
+    }
+    cout << numeric << " " << smallestLength << endl;
+    return numeric * smallestLength;
 }
 
 int main()
 {
-
+    time_t t1 = time(NULL);
     string filename = "input.txt";
+    int numIters = 25;
     // filename = "sample.txt";
-    int reductionThreshold = 100;
-    int max_cheat = 20;
+    // numIters = 2;
     vector<string> grid = parseInput(filename);
-    int count = numCheatsSavingAtLeastThreshold(grid, reductionThreshold, max_cheat);
-    cout << "count that reduce by at least " << reductionThreshold << ": " << count << endl;
-
+    long complexity = 0;
+    for (string s : grid)
+    {
+        complexity += getComplexity(s, numIters);
+    }
+    cout << complexity << endl;
+    cout << "took " << time(NULL) - t1 << " seconds" << endl;
     return 0;
 }

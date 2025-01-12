@@ -212,7 +212,7 @@ int main()
 {
     time_t t1 = time(NULL);
     string filename = "input.txt";
-    // filename = "sample.txt";
+    filename = "sample.txt";
     vector<string> grid = parseInput(filename);
     int complexity = 0;
     for (string s : grid)
