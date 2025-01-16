@@ -5,148 +5,287 @@
 #include <map>
 
 using namespace std;
+/*
+- x_i XOR y_i
+- is the ith Basic Addition Bit (BAB_i), i = 00..44
 
-pair<map<string,int>, vector<vector<bool>>> parseInput(string filename)
+- x_i AND y_i
+- is the ith Basic Carry Bit (BCB_i) 00..44
+
+- BCB_i AND BAB_{i+1} is the (i+1)th Intermediate Carry Bit (ICB_{i+1}) i = 00..44
+
+- ICB_i OR BCB_i is the Final Carry Bit (FCB_i) 01..45
+
+
+- BAB_{i} XOR FCB_{i-1} is the Output Bit (OUT_i) 02..45
+
+expectations: 
+- BCB_i OR 
+- each FCB is XOR'd with the next BAB to 
+
+
+- check that the output of x_i AND y_i
+- is fed into z_{i+1}
+
+*/
+
+enum KIND{
+    BAB,
+    BCB,
+    ICB,
+    FCB,
+    OUT
+};
+
+class Expression {
+    string operand1;
+    string operand2;
+    string binaryOperator;
+    string output;
+
+    public:Expression(string op1, string op2, string binOp, string out){
+        operand1 = op1;
+        operand2 = op2;
+        binaryOperator = binOp;
+        output = out;
+    }
+    public:Expression(){
+
+    }
+
+    public:Expression(const Expression &other){
+        operand1 = other.operand1;
+        operand2 = other.operand2;
+        binaryOperator = other.binaryOperator;
+        output = other.output;
+    }
+
+    public:KIND getKind(){
+        if (isBasicAdditionBit()){
+            return BAB;
+        }
+        if (isBasicCarryBit()){
+            return BCB;
+        }
+        // if it's not either of these, we can deduce type by the operator
+        int ANDORXOR = (binaryOperator == "AND") ? 0 : (binaryOperator == "OR") ? 1 : 2;
+        switch (ANDORXOR){
+            case 0:
+                return ICB; // AND => Intermediate Carry Bit
+            case 1:
+                return FCB; // OR => Final Carry Bit
+            case 2:
+                return OUT; // XOR => Output Bit
+            default:
+                throw;
+        }
+    }
+
+    bool isBasicAdditionBit(){
+        if (binaryOperator != "XOR"){
+            return false;
+        }
+        if (operand1[0] == 'x' || operand2[0] == 'x'){
+            return true;
+        }
+        return false;
+    }
+    bool isBasicCarryBit(){
+        if (binaryOperator != "AND"){
+            return false;
+        }
+        if (operand1[0] == 'x' || operand2[0] == 'x'){
+            return true;
+        }
+        return false;
+    }
+    public:string getOutput(){
+        return output;
+    }
+
+    public:string toString(){
+        return operand1 + " " + binaryOperator + " " + operand2 + " -> " + output;
+    }
+
+    public:vector<string> getInputs(){
+        return {operand1, operand2};
+    }
+};
+
+class ExpressionGroup{
+    vector<Expression> group;
+    map<string,Expression> lookup;
+    map<string,Expression> babSet;
+    map<string,Expression> bcbSet;
+    map<string,vector<string>> contributesTo;
+
+    public:ExpressionGroup(){
+
+    }
+
+    public:ExpressionGroup(const ExpressionGroup &other){
+        group = other.group;
+        lookup = other.lookup;
+        babSet = other.babSet;
+        bcbSet = other.bcbSet;
+        contributesTo = other.contributesTo;
+    }
+
+    public:ExpressionGroup(vector<Expression> g){
+        group = g;
+        populateLookup();
+        createSets();
+        createReverseMapping();
+    }
+
+    public:ExpressionGroup(map<string,Expression> m){
+        lookup = m;
+        for (pair<const string,Expression> p: m){
+            group.push_back(p.second);
+        }
+        createSets();
+        createReverseMapping();
+    }
+
+    private:void createSets(){
+        for (pair <const string, Expression> p : lookup){
+            KIND k = p.second.getKind();
+            if (k == BAB){
+                babSet[p.first] = p.second;
+            } else if (k == BCB){
+                bcbSet[p.first] = p.second;
+            }
+        }
+    }
+
+    private:void createReverseMapping(){
+        for (Expression e : group){
+            vector<string> inputs = e.getInputs();
+            for(string from : inputs){
+                if (contributesTo.find(from) == contributesTo.end()){
+                    contributesTo[from] = {};
+                }
+                contributesTo[from].push_back(e.getOutput());
+            }
+        }
+    }
+
+    public:void printBABViolations(){
+        for (pair<const string,Expression> p : babSet){
+            bool IsNotInvolvedInOutput = true;
+            bool IsNotInvolvedInICB = true;
+            bool IsNotInvolvedInFCB = true;
+            for (string s : contributesTo[p.first]){
+                KIND k = lookup[s].getKind();
+                if (k == OUT){
+                    IsNotInvolvedInOutput = false;
+                } else if (k == ICB){
+                    IsNotInvolvedInICB = false;
+                } 
+            }
+
+            if ((IsNotInvolvedInOutput || IsNotInvolvedInICB) && p.first != "z00"){
+                cout << p.second.toString() << endl;
+            }
+        }
+    }
+
+    public:void printBCBViolations(){
+        for (pair<const string,Expression> p : bcbSet){
+            bool IsNotInvolvedInICB = true;
+            bool IsNotInvolvedInFCB = true;
+            for (string s : contributesTo[p.first]){
+                KIND k = lookup[s].getKind();
+                if (k == FCB){
+                    IsNotInvolvedInFCB = false;
+                } else if (k == ICB){
+                    IsNotInvolvedInICB = false;
+                } 
+            }
+
+            if ((IsNotInvolvedInFCB || IsNotInvolvedInICB) && p.first != "z00"){
+                cout << p.second.toString() << endl;
+            }
+        }
+    }
+
+    public:void printOUTViolations(){
+        for (pair<const string, Expression> p: lookup){
+            Expression e = p.second;
+            KIND k = e.getKind();
+            if (k != OUT){
+                continue;
+            }
+            string wireOut = e.getOutput();
+            if (wireOut[0] != 'z'){
+                cout << e.toString() << endl;
+            }
+        }
+    }
+
+    private:void populateLookup(){
+        for (Expression e : group){
+            lookup[e.getOutput()] = e;
+        }
+    }
+    public:void push_back(Expression e){
+        group.push_back(e);
+        lookup[e.getOutput()] = e;
+    }
+
+
+};
+
+
+map<string,Expression> parseInput(string filename)
 {
     ifstream f(filename);
-    map<string,int> ordering;
-    vector<pair<string,string>> edges;
     string x;
+    map<string,Expression> gates;
+    map<string, bool> initialValues;
     while (f >> x)
     {
-        int j = x.find('-');
-        string s1 = x.substr(0,j);
-        string s2 = x.substr(j+1, x.size() - j - 1);
-        edges.push_back(make_pair(s1,s2));
-    }
-    int N = 0;
-    for (pair<string,string> e : edges){
-        for (string name : {e.first, e.second}){
-            if (ordering.find(name) == ordering.end()){
-                ordering[name] = N++;
-            }
+        if (x.find(':') == x.npos){
+            string operation;
+            string arg2;
+            string arrow;
+            string result;
+            f >> operation >> arg2 >> arrow >> result;
+            Expression e = Expression(x, arg2, operation, result);
+            gates[result] = e;
+        } else {
+            int value;
+            f >> value;
+            initialValues[x.substr(0,x.size() - 1)] = (bool)value;
         }
     }
-    vector<vector<bool>> adj;
-    for (int i = 0; i < N; ++i){
-        vector<bool> row;
-        for (int j = 0; j < N; ++j)
-            row.push_back(false);
-        adj.push_back(row);
-    }
-
-    for (pair<string,string> e : edges){
-        adj[ordering[e.first]][ordering[e.second]] = true;
-        adj[ordering[e.second]][ordering[e.first]] = true;
-    }
-    return make_pair(ordering, adj);
+    return gates;
 
 }
 
-bool checkIfAllConnected(const vector<vector<bool>> &adj, vector<int> points){
-    for (int i = 0; i < points.size(); ++i)
-        for (int j = i+1; j < points.size(); ++j)
-            if (adj[points[i]][points[j]] == false)
-                return false;
-    return true;
+void solution(map<string, Expression> gates){
+    ExpressionGroup G = ExpressionGroup(gates);
+    G.printBABViolations();
+    G.printOUTViolations();
 }
 
-bool checkIfAnyStartWithT(bool *startsWithT, vector<int> points){
-    for (int p : points)
-        if (startsWithT[p])
-            return true;
-    return false;
-}
 /*
-the number of 5 cliques is 45045, from all 520 points. Therefore the largest clique is at most 24, since a 25-clique begets 53k 5-cliques.
-the number of 6 cliques is 55770, from 520 points. Therefore the largest clique is at most 21, since a 22-clique begets 74k 6-cliques
-the number of 7 cliques is 50622, from 520  points.
-8 cliques 33462, 520 points
-9 cliques 15730, 520 points 
-10 cliques 5005, 520 points. therefore the largest clique is at most 15, since a 16 clique would beget 8k 10-cliques.
-11 cliques 975. therefore the largest clique is at most 14, since a 15 clique would beget 1.3k 11-cliques
-12 cliques 91.
+deductions: 
+qjj is a violation, because it does not input to an OUT expression. suspect qjj <=> cbj
+cfk is a violation because it is the output from an OUT string suspect cfk <=> z35
+dmn is a violation because it is the output from an OUT string suspect dmn <=> z18
+gmt is a violation because it is the output from an OUT string suspect gmt <=> z07
+
+LLMs might actually have a hard time with this one 
 */
-long solution(map<string,int> ordering, vector<vector<bool>> adj){
-    const int N = ordering.size();
-    bool inACliqueOf13[N];
-    for (pair<const string,int> x : ordering){
-        inACliqueOf13[x.second] = false;
-    }
-    long totalNumSets = 0;
-    for (int i1 = 0; i1 < N; ++i1){
-        cout << i1 << " of " << N << ": " << totalNumSets << endl;
-        for (int i2 = i1+1; i2 < N; ++i2){
-            if (adj[i1][i2] == false)
-                continue;
-            for (int i3 = i2+1; i3 < N; ++i3){
-                if (!adj[i1][i3] || !adj[i2][i3])
-                    continue;
-                for (int i4=i3+1; i4 < N; ++i4){
-                    if (!adj[i1][i4] || !adj[i2][i4] || !adj[i3][i4])
-                        continue;
-                    for (int i5 = i4+1; i5 < N; ++i5){
-                        if (!adj[i1][i5] || !adj[i2][i5] || !adj[i3][i5] || !adj[i4][i5])
-                            continue;
-                        for (int i6 = i5+1; i6 < N; ++i6){
-                            if (!adj[i1][i6] || !adj[i2][i6] || !adj[i3][i6] || !adj[i4][i6] || !adj[i5][i6])
-                                continue;
-                            for (int i7 = i6+1; i7 < N; ++i7){
-                                if (!adj[i1][i7] || !adj[i2][i7] || !adj[i3][i7] || !adj[i4][i7] || !adj[i5][i7] || !adj[i6][i7])
-                                    continue;
-                                for (int i8 = i7+1; i8 < N; ++i8){
-                                    if (!adj[i1][i8] || !adj[i2][i8] || !adj[i3][i8] || !adj[i4][i8] || !adj[i5][i8] || !adj[i6][i8] || !adj[i7][i8])
-                                        continue;
-                                    for (int i9 = i8+1; i9 < N; ++i9){
-                                        if (!adj[i1][i9] || !adj[i2][i9] || !adj[i3][i9] || !adj[i4][i9] || !adj[i5][i9] || !adj[i6][i9] || !adj[i7][i9] || !adj[i8][i9])
-                                            continue;
-                                        for (int i10 = i9+1; i10 < N; ++i10){
-                                            if (!adj[i1][i10] || !adj[i2][i10] || !adj[i3][i10] || !adj[i4][i10] || !adj[i5][i10] || !adj[i6][i10] || !adj[i7][i10] || !adj[i8][i10] || !adj[i9][i10])
-                                                continue;
-                                            for (int i11 = i10+1; i11 < N; ++i11){
-                                                if (!adj[i1][i11] || !adj[i2][i11] || !adj[i3][i11] || !adj[i4][i11] || !adj[i5][i11] || !adj[i6][i11] || !adj[i7][i11] || !adj[i8][i11] || !adj[i9][i11] || !adj[i10][i11])
-                                                    continue;
-                                                for (int i12 = i11+1; i12 < N; ++i12){
-                                                    if (!adj[i1][i12] || !adj[i2][i12] || !adj[i3][i12] || !adj[i4][i12] || !adj[i5][i12] || !adj[i6][i12] || !adj[i7][i12] || !adj[i8][i12] || !adj[i9][i12] || !adj[i10][i12] || !adj[i11][i12])
-                                                        continue;
-                                                    for (int i13 = i12+1; i13 < N; ++i13){
-                                                        if (!adj[i1][i13] || !adj[i2][i13] || !adj[i3][i13] || !adj[i4][i13] || !adj[i5][i13] || !adj[i6][i13] || !adj[i7][i13] || !adj[i8][i13] || !adj[i9][i13] || !adj[i10][i13] || !adj[i11][i13] || !adj[i12][i13])
-                                                            continue;
-                                                        ++totalNumSets;
-                                                        for (int y : {i1,i2,i3,i4,i5,i6,i7,i8,i9,i10,i11,i12,i13}){
-                                                            inACliqueOf13[y] = true;
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    for (auto p : ordering){
-        if (inACliqueOf13[p.second]){
-            cout << p.first << ",";
-        }
-    }
-    cout << endl;
-    return totalNumSets;
-}
-
 int main()
 {
     time_t t1 = time(NULL);
     string filename = "input.txt";
     // filename = "sample.txt";
-    pair<map<string,int>, vector<vector<bool>>> data = parseInput(filename);
-    long output = solution(data.first, data.second);
-    cout << output << endl;
+    map<string,Expression> gates = parseInput(filename);
+    solution(gates);
+    // cout << output << endl;
     cout << "took " << time(NULL) - t1 << " seconds" << endl;
     return 0;
 }
